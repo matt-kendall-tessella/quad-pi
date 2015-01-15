@@ -13,13 +13,12 @@ class I2CDevice(object):
         :param device_address: I2C Address of device
         """
         self.bus = i2c_bus
-        self.bus = SMBus()
         self.address = device_address
 
     def __getitem__(self, register_address):
         return self.bus.read_byte_data(self.address, register_address)
 
-    def __setitem__(self, register_address, byte_data):
+    def __setitem__(self, register_address, byte_data):        
         self.bus.write_byte_data(self.address, register_address, byte_data)
 
 
