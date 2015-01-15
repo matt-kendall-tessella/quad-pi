@@ -1,6 +1,43 @@
 from smbus import SMBus
 
 
+class TwosComplement(object):
+
+    _bin_val = None
+    _bits = 16
+
+    def __init__(self, lsb, msb=None):
+        """
+        Create a new two's complement number
+        :param lsb: The least significant byte of the number.
+        :param msb: An optional second most significant byte.
+        """
+        if msb is None:
+            self._bin_val = lsb
+            self._bits = 8
+        else:
+            self._bin_val = (msb << 8) + lsb
+            self._bits = 16
+
+    def as_dec(self):
+        """
+        Return the value of this number as a decimal
+        """
+        sign_bit = self._bin_val >> self._bits - 1
+        if sign_bit:
+            # Flip the bits after the sign
+            data_bits = self._bin_val - 2**self._bits
+            return -(~ data_bits + 1)
+        else:
+            return self._bin_val
+
+    def as_bin(self):
+        """
+        Return the binary (two's complement) value of this number
+        """
+        return self._bin_val
+
+
 class I2CDevice(object):
     """
     Represents any I2C device with a specific address.
@@ -12,14 +49,20 @@ class I2CDevice(object):
         :param i2c_bus: Configured smbus.SMBus instance
         :param device_address: I2C Address of device
         """
-        self.bus = i2c_bus
-        self.address = device_address
+        self._bus = i2c_bus
+        self._address = device_address
 
     def __getitem__(self, register_address):
-        return self.bus.read_byte_data(self.address, register_address)
+        """
+        Retrieve a value from a given register on this device
+        """
+        return self._bus.read_byte_data(self._address, register_address)
 
-    def __setitem__(self, register_address, byte_data):        
-        self.bus.write_byte_data(self.address, register_address, byte_data)
+    def __setitem__(self, register_address, byte_data):
+        """
+        Write a value to a given register on this device
+        """
+        self._bus.write_byte_data(self._address, register_address, byte_data)
 
 
 class ADXL345(object):
@@ -61,7 +104,11 @@ class ADXL345(object):
     FIFO_STATUS = 0x39
 
     def __init__(self, i2c_bus):
-        self.i2c = I2CDevice(i2c_bus, self.ADDRESS)
+        """
+        Create a new ADXL345 device
+        :param i2c_bus: Configured smbus.SMBus instance to use for connections
+        """
+        self._i2c = I2CDevice(i2c_bus, self.ADDRESS)
 
     def set_offset(self):
         # TODO
@@ -74,7 +121,7 @@ class ADXL345(object):
         This is achieved by setting the 'measure' bit of POWER_CTL
         """
         data = 0b00001000
-        self.i2c[self.POWER_CTL] = data
+        self._i2c[self.POWER_CTL] = data
 
     def stop(self):
         """
@@ -82,7 +129,7 @@ class ADXL345(object):
         This is achieved by clearing the 'measure' bit of POWER_CTL
         """
         data = 0b00000000
-        self.i2c[self.POWER_CTL] = data
+        self._i2c[self.POWER_CTL] = data
 
     def set_rate(self, rate):
         # TODO
