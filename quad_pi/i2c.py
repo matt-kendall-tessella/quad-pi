@@ -37,6 +37,45 @@ class TwosComplement(object):
         """
         return self._bin_val
 
+    @classmethod
+    def _split_lsb_msb(cls, bin):
+        msb = bin >> 8
+        lsb = bin - (msb << 8)
+        return lsb, msb
+
+    @classmethod
+    def _negative_to_binary(cls, decimal, bits):
+        return ~ abs(decimal) + (2 ** bits + 1)
+
+    @classmethod
+    def from_decimal(cls, decimal):
+        # do range check and identify num bits
+        if decimal >= 0:
+            # Positive - we can use the binary as is
+            if decimal < 128:
+                # 8 bits - just use LSB
+                return cls(decimal)
+            elif decimal < 32768:
+                # 16 bits - split into LSB and MSB
+                lsb, msb = cls._split_lsb_msb(decimal)
+                return cls(lsb, msb)
+            else:
+                raise ValueError("Decimal must be an 8 or 16 bit integer")
+        else:
+            # Negative, take off 1, flip bits, add negative bit
+            if decimal >= -128:
+                # 8 bits - just use LSB
+                bits = 8
+                binary = cls._negative_to_binary(decimal, bits)
+                return cls(binary)
+            elif decimal >= - 32768:
+                bits = 16
+                binary = cls._negative_to_binary(decimal, bits)
+                lsb, msb = cls._split_lsb_msb(binary)
+                return cls(lsb, msb)
+            else:
+                raise ValueError("Decimal must be an 8 or 16 bit integer")
+
 
 class I2CDevice(object):
     """

@@ -50,3 +50,48 @@ class TestTwosComplement(unittest.TestCase):
         msb = 0b01010010
         twos = TwosComplement(lsb, msb)
         assert_that(twos.as_dec(), is_(21077))
+
+    def test_GIVEN_zero_WHEN_make_from_decimal_THEN_binary_correct(self):
+        twos = TwosComplement.from_decimal(0)
+        assert_that(twos.as_bin(), is_(0b0))
+        assert_that(twos.as_dec(), is_(0))
+
+    def test_GIVEN_positive_leq_127_WHEN_make_from_decimal_THEN_binary_correct(self):
+        decs = [66, 127]
+        bins = [0b1000010, 0b01111111]
+        for idx, dec in enumerate(decs):
+            twos = TwosComplement.from_decimal(dec)
+            assert_that(twos.as_bin(), is_(bins[idx]))
+            assert_that(twos.as_dec(), is_(dec))
+
+    def test_GIVEN_positive_leq_32767_WHEN_make_from_decimal_THEN_binary_correct(self):
+        decs = [300, 32767]
+        bins = [0b100101100, 0b0111111111111111]
+        for idx, dec in enumerate(decs):
+            twos = TwosComplement.from_decimal(dec)
+            assert_that(twos.as_bin(), is_(bins[idx]))
+            assert_that(twos.as_dec(), is_(dec))
+
+    def test_GIVEN_positive_gt_32767_WHEN_make_from_decimal_THEN_raises_ValueError(self):
+        with self.assertRaises(ValueError):
+            twos = TwosComplement.from_decimal(32768)
+
+    def test_GIVEN_negative_geq_minus_128_WHEN_make_from_decimal_THEN_binary_products(self):
+        decs = [-77, -128]
+        bins = [0b10110011, 0b10000000]
+        for idx, dec in enumerate(decs):
+            twos = TwosComplement.from_decimal(dec)
+            assert_that(twos.as_bin(), is_(bins[idx]))
+            assert_that(twos.as_dec(), is_(dec))
+
+    def test_GIVEN_negative_geq_minus_32768_WHEN_make_from_decimal_THEN_binary_products(self):
+        decs = [-3500, -32768]
+        bins = [0b1111001001010100, 0b1000000000000000]
+        for idx, dec in enumerate(decs):
+            twos = TwosComplement.from_decimal(dec)
+            assert_that(twos.as_bin(), is_(bins[idx]))
+            assert_that(twos.as_dec(), is_(dec))
+
+    def test_GIVEN_positive_lt_minus_32768_WHEN_make_from_decimal_THEN_raises_ValueError(self):
+        with self.assertRaises(ValueError):
+            twos = TwosComplement.from_decimal(-32769)
