@@ -118,3 +118,31 @@ class TestADXL345(unittest.TestCase):
         accel = ADXL345(mock_bus)
         x, y, z = accel.read()
         assert_that((x, y, z), is_((256, 770, 1284)))
+
+    def test_WHEN_get_range_THEN_i2c_called_correctly(self):
+        mock_bus = mock.Mock()
+        mock_bus.read_byte_data = mock.Mock(return_value=0)
+        accel = ADXL345(mock_bus)
+        accel.get_data_range()
+        assert_that(accel._i2c._bus.read_byte_data.call_args_list[0][0], is_((0x53, 0x31)))
+
+    def test_WHEN_get_range_THEN_output_returned_as_expected(self):
+        mock_bus = mock.Mock()
+        mock_bus.read_byte_data = mock.Mock(return_value=0b00000010)
+        accel = ADXL345(mock_bus)
+        range = accel.get_data_range()
+        assert_that(range, is_(8))
+
+    def test_GIVEN_invalid_range_WHEN_set_range_THEN_raises_ValueError(self):
+        mock_bus = mock.Mock()
+        accel = ADXL345(mock_bus)
+        for r in [0, -2, 32, 15.99]:
+            with self.assertRaises(ValueError):
+                accel.set_data_range(r)
+
+    def test_GIVEN_valid_range_WHEN_set_range_THEN_i2c_called_correctly(self):
+        mock_bus = mock.Mock()
+        mock_bus.write_byte_data = mock.Mock()
+        accel = ADXL345(mock_bus)
+        accel.set_data_range(16)
+        assert_that(accel._i2c._bus.write_byte_data.call_args_list[0][0], is_((0x53, 0x31, 0b00000011)))

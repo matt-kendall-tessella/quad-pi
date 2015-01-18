@@ -147,6 +147,8 @@ class ADXL345(object):
     FIFO_CTL = 0x39
     FIFO_STATUS = 0x39
 
+    _i2c = None
+
     def __init__(self, i2c_bus):
         """
         Create a new ADXL345 device
@@ -198,10 +200,31 @@ class ADXL345(object):
         # Use BW_RATE, see power mode as well
         pass
 
-    def set_data_format(self):
-        # TODO
-        # DATA FORMAT
-        pass
+    def get_data_range(self):
+        """
+        Find out the accelerometer's set data range.
+        """
+        ranges = {0b00: 2,
+                  0b01: 4,
+                  0b10: 8,
+                  0b11: 16}
+        bin_range = self._i2c[self.DATA_FORMAT]
+        return ranges[bin_range % 4]
+
+    def set_data_range(self, range):
+        """
+        Set the data range (from +/- 2,4,8,16 g).
+        :param range: Integer range (choose from +/- 2,4,8,16 g).
+        """
+        ranges = {2: 0b00,
+                  4: 0b01,
+                  8: 0b10,
+                  16: 0b11}
+        if range in ranges:
+            setting = ranges[range]
+            self._i2c[self.DATA_FORMAT] = setting
+        else:
+            raise ValueError("%s is not an acceptable range - choose from 2,4,8,16")
 
     def self_test(self):
         # TODO
