@@ -49,7 +49,12 @@ class TwosComplement(object):
 
     @classmethod
     def from_decimal(cls, decimal):
-        # do range check and identify num bits
+        """
+        Create a new TwosComplement instance from a decimal number
+        :param decimal: Decimal to convert into twos complement. Must be in the range -32768 <= x < 32768
+        :return: A TwosComplement instance
+        :raise ValueError: if the decimal is outside of the specified range.
+        """
         if decimal >= 0:
             # Positive - we can use the binary as is
             if decimal < 128:
