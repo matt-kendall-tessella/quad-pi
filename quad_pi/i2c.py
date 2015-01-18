@@ -149,6 +149,24 @@ class ADXL345(object):
         """
         self._i2c = I2CDevice(i2c_bus, self.ADDRESS)
 
+    def read(self):
+        """
+        Read the decimal values (raw ADU) for the three axes from the accelerometer. Values are not converted into
+        units of g but if the board has had an offset saved in this power cycle then this is subtracted onboard.
+        :returns An (x,y,z) tuple of the raw ADU
+        """
+        x, y, z = self._get_raw_xyz()
+        return x.as_dec(), y.as_dec(), z.as_dec()
+
+    def _get_raw_xyz(self):
+        """
+        Get the binary (twos complement) reading for each axis
+        """
+        x = TwosComplement(self._i2c[self.DATAX0], self._i2c[self.DATAX1])
+        y = TwosComplement(self._i2c[self.DATAY0], self._i2c[self.DATAY1])
+        z = TwosComplement(self._i2c[self.DATAZ0], self._i2c[self.DATAZ1])
+        return x, y, z
+
     def set_offset(self):
         # TODO
         # Use OFSX, OFSY, OFSZ (0x1e, 0x1f, 0x20)
@@ -185,7 +203,3 @@ class ADXL345(object):
         # DATA FORMAT
         pass
 
-    def read_data(self):
-        # TODO
-        # split into 3 axis? at least for private methods
-        pass
