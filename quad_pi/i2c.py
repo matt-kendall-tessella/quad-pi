@@ -1,4 +1,5 @@
 from smbus import SMBus
+from bidict import bidict
 
 
 class TwosComplement(object):
@@ -147,6 +148,12 @@ class ADXL345(object):
     FIFO_CTL = 0x39
     FIFO_STATUS = 0x39
 
+    # Data range (+/-g) --> Range bits value
+    DATA_RANGES = bidict({2: 0b00,
+                          4: 0b01,
+                          8: 0b10,
+                          16: 0b11})
+
     _i2c = None
 
     def __init__(self, i2c_bus):
@@ -204,24 +211,16 @@ class ADXL345(object):
         """
         Find out the accelerometer's set data range.
         """
-        ranges = {0b00: 2,
-                  0b01: 4,
-                  0b10: 8,
-                  0b11: 16}
         bin_range = self._i2c[self.DATA_FORMAT]
-        return ranges[bin_range % 4]
+        return self.DATA_RANGES[:bin_range % 4]
 
     def set_data_range(self, range):
         """
         Set the data range (from +/- 2,4,8,16 g).
         :param range: Integer range (choose from +/- 2,4,8,16 g).
         """
-        ranges = {2: 0b00,
-                  4: 0b01,
-                  8: 0b10,
-                  16: 0b11}
-        if range in ranges:
-            setting = ranges[range]
+        if range in self.DATA_RANGES:
+            setting = self.DATA_RANGES[range]
             self._i2c[self.DATA_FORMAT] = setting
         else:
             raise ValueError("%s is not an acceptable range - choose from 2,4,8,16")
