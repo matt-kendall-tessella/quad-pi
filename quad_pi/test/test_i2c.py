@@ -146,3 +146,31 @@ class TestADXL345(unittest.TestCase):
         accel = ADXL345(mock_bus)
         accel.set_data_range(16)
         assert_that(accel._i2c._bus.write_byte_data.call_args_list[0][0], is_((0x53, 0x31, 0b00000011)))
+
+    def test_WHEN_get_rate_THEN_i2c_called_correctly(self):
+        mock_bus = mock.Mock()
+        mock_bus.read_byte_data = mock.Mock(return_value=0)
+        accel = ADXL345(mock_bus)
+        accel.get_data_rate()
+        assert_that(accel._i2c._bus.read_byte_data.call_args_list[0][0], is_((0x53, 0x2c)))
+
+    def test_WHEN_get_rate_THEN_output_returned_as_expected(self):
+        mock_bus = mock.Mock()
+        mock_bus.read_byte_data = mock.Mock(return_value=0b00001010)
+        accel = ADXL345(mock_bus)
+        range = accel.get_data_rate()
+        assert_that(range, is_(100))
+
+    def test_GIVEN_invalid_rate_WHEN_set_rate_THEN_raises_ValueError(self):
+        mock_bus = mock.Mock()
+        accel = ADXL345(mock_bus)
+        for r in [0, -200, 101, 0.05]:
+            with self.assertRaises(ValueError):
+                accel.set_data_rate(r)
+
+    def test_GIVEN_valid_rate_WHEN_set_range_THEN_i2c_called_correctly(self):
+        mock_bus = mock.Mock()
+        mock_bus.write_byte_data = mock.Mock()
+        accel = ADXL345(mock_bus)
+        accel.set_data_rate(400)
+        assert_that(accel._i2c._bus.write_byte_data.call_args_list[0][0], is_((0x53, 0x2c, 0b00001100)))

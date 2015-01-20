@@ -115,8 +115,10 @@ class ADXL345(object):
     Interface to an ADXL345 3-axis Accelerometer
     """
 
+    # Device address
     ADDRESS = 0x53
 
+    # Device Registers
     DEVID = 0x0
     THRESH_TAP = 0x1d
     OFSX = 0x1e
@@ -149,10 +151,32 @@ class ADXL345(object):
     FIFO_STATUS = 0x39
 
     # Data range (+/-g) --> Range bits value
-    DATA_RANGES = bidict({2: 0b00,
-                          4: 0b01,
-                          8: 0b10,
-                          16: 0b11})
+    DATA_RANGES = bidict({
+        2: 0b00,
+        4: 0b01,
+        8: 0b10,
+        16: 0b11
+    })
+
+    # Data rate (Hz) --> Rate bits value
+    DATA_RATES = bidict({
+        3200: 0b1111,
+        1600: 0b1110,
+        800: 0b1101,
+        400: 0b1100,
+        200: 0b1011,
+        100: 0b1010,
+        50: 0b1001,
+        25: 0b1000,
+        12.5: 0b0111,
+        6.25: 0b0110,
+        3.13: 0b0101,
+        1.56: 0b0100,
+        0.78: 0b0011,
+        0.39: 0b0010,
+        0.20: 0b0001,
+        0.10: 0b0000
+    })
 
     _i2c = None
 
@@ -202,17 +226,31 @@ class ADXL345(object):
         data = 0b00000000
         self._i2c[self.POWER_CTL] = data
 
-    def set_rate(self, rate):
-        # TODO
-        # Use BW_RATE, see power mode as well
-        pass
+    def get_data_rate(self):
+        """
+        Find the accelerometers current data rate.
+        """
+        bin_rate = self._i2c[self.BW_RATE]
+        return self.DATA_RATES[:bin_rate % 16]  # Takes the 4 right hand bits
+
+    def set_data_rate(self, rate):
+        """
+        Set the accelerometer's output data rate.
+        :param rate: The output data rate to set (Hz). Must be one of the ADXL345's supported data rates (see datasheet).
+        This includes 50Hz, 100Hz, 200Hz, 400Hz, 800Hz
+        """
+        if rate in self.DATA_RATES:
+            setting = self.DATA_RATES[rate]
+            self._i2c[self.BW_RATE] = setting
+        else:
+            raise ValueError("%s is not an acceptable output data rate - check the datasheet for valid values." % rate)
 
     def get_data_range(self):
         """
-        Find out the accelerometer's set data range.
+        Find out the accelerometer's current data range.
         """
         bin_range = self._i2c[self.DATA_FORMAT]
-        return self.DATA_RANGES[:bin_range % 4]
+        return self.DATA_RANGES[:bin_range % 4]  # Takes the 2 right hand bits
 
     def set_data_range(self, range):
         """
@@ -223,7 +261,7 @@ class ADXL345(object):
             setting = self.DATA_RANGES[range]
             self._i2c[self.DATA_FORMAT] = setting
         else:
-            raise ValueError("%s is not an acceptable range - choose from 2,4,8,16")
+            raise ValueError("%s is not an acceptable range - choose from 2,4,8,16." % range)
 
     def self_test(self):
         # TODO
