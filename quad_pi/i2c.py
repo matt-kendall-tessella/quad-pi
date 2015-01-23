@@ -1,4 +1,3 @@
-from smbus import SMBus
 from bidict import bidict
 
 
@@ -20,6 +19,12 @@ class TwosComplement(object):
             self._bin_val = (msb << 8) + lsb
             self._bits = 16
 
+    def __int__(self):
+        """
+        Return the binary representation, so that this can be used with int casting
+        """
+        return self.as_bin()
+
     def as_dec(self):
         """
         Return the value of this number as a decimal
@@ -39,9 +44,13 @@ class TwosComplement(object):
         return self._bin_val
 
     @classmethod
-    def _split_lsb_msb(cls, bin):
-        msb = bin >> 8
-        lsb = bin - (msb << 8)
+    def _split_lsb_msb(cls, binary):
+        """
+        Split a 16 bit binary number into LSB and MSB (each 8 bits).
+        :param binary: 16 bit binary number to split
+        """
+        msb = binary >> 8
+        lsb = binary - (msb << 8)
         return lsb, msb
 
     @classmethod
@@ -52,10 +61,13 @@ class TwosComplement(object):
     def from_decimal(cls, decimal):
         """
         Create a new TwosComplement instance from a decimal number
-        :param decimal: Decimal to convert into twos complement. Must be in the range -32768 <= x < 32768
+        :param decimal: Decimal to convert into twos complement. Must be in the range -32768 <= x < 32768.
+        May be integer or floating point.
         :return: A TwosComplement instance
         :raise ValueError: if the decimal is outside of the specified range.
         """
+        # Round and cast to int first:
+        decimal = int(round(decimal))
         if decimal >= 0:
             # Positive - we can use the binary as is
             if decimal < 128:
@@ -107,7 +119,7 @@ class I2CDevice(object):
         """
         Write a value to a given register on this device
         """
-        self._bus.write_byte_data(self._address, register_address, byte_data)
+        self._bus.write_byte_data(self._address, register_address, int(byte_data))
 
 
 class ADXL345(object):
@@ -158,6 +170,17 @@ class ADXL345(object):
         16: 0b11
     })
 
+    # Data range (+/-g) --> Scale factor (mg / LSB)
+    SCALE_FACTORS = {
+        2: 3.9,
+        4: 7.8,
+        8: 15.6,
+        16: 31.2
+    }
+
+    # Scale factor of values in the offset registers (mg / LSB)
+    OFFSET_REGISTERS_SCALE_FACTOR = 15.6
+
     # Data rate (Hz) --> Rate bits value
     DATA_RATES = bidict({
         3200: 0b1111,
@@ -189,9 +212,9 @@ class ADXL345(object):
 
     def read(self):
         """
-        Read the decimal values (raw ADU) for the three axes from the accelerometer. Values are not converted into
+        Read the decimal values (raw LSB) for the three axes from the accelerometer. Values are not converted into
         units of g but if the board has had an offset saved in this power cycle then this is subtracted onboard.
-        :returns An (x,y,z) tuple of the raw ADU
+        :returns An (x,y,z) tuple of the raw LSB
         """
         x, y, z = self._get_raw_xyz()
         return x.as_dec(), y.as_dec(), z.as_dec()
@@ -204,11 +227,6 @@ class ADXL345(object):
         y = TwosComplement(self._i2c[self.DATAY0], self._i2c[self.DATAY1])
         z = TwosComplement(self._i2c[self.DATAZ0], self._i2c[self.DATAZ1])
         return x, y, z
-
-    def set_offset(self):
-        # TODO
-        # Use OFSX, OFSY, OFSZ (0x1e, 0x1f, 0x20)
-        pass
 
     def start(self):
         """
@@ -252,19 +270,42 @@ class ADXL345(object):
         bin_range = self._i2c[self.DATA_FORMAT]
         return self.DATA_RANGES[:bin_range % 4]  # Takes the 2 right hand bits
 
-    def set_data_range(self, range):
+    def set_data_range(self, data_range):
         """
         Set the data range (from +/- 2,4,8,16 g).
-        :param range: Integer range (choose from +/- 2,4,8,16 g).
+        :param data_range: Integer range (choose from +/- 2,4,8,16 g).
         """
-        if range in self.DATA_RANGES:
-            setting = self.DATA_RANGES[range]
+        if data_range in self.DATA_RANGES:
+            setting = self.DATA_RANGES[data_range]
             self._i2c[self.DATA_FORMAT] = setting
         else:
-            raise ValueError("%s is not an acceptable range - choose from 2,4,8,16." % range)
+            raise ValueError("%s is not an acceptable range - choose from 2,4,8,16." % data_range)
 
-    def self_test(self):
-        # TODO
-        # DATA FORMAT
-        pass
+    def set_offset(self, offset_x, offset_y, offset_z):
+        """
+        Set the onboard zero-g offset.
 
+        This takes the reading in LSB that
+        :param offset_x: x-axis 0g reading (LSB)
+        :param offset_y: y-axis 0g reading (LSB)
+        :param offset_z: z-axis 1g reading (LSB)
+        """
+        # First rescale the data to match the offset registers
+        data_range = self.get_data_range()
+        scaled_x = self._scale_to_match_offset_register(offset_x, data_range)
+        scaled_y = self._scale_to_match_offset_register(offset_y, data_range)
+        scaled_z = self._scale_to_match_offset_register(offset_z, data_range)
+
+        # Values get stored in registers as negatives
+        self._i2c[self.OFSX] = TwosComplement.from_decimal(- scaled_x)
+        self._i2c[self.OFSY] = TwosComplement.from_decimal(- scaled_y)
+        self._i2c[self.OFSZ] = TwosComplement.from_decimal(- scaled_z)
+
+    def _scale_to_match_offset_register(self, value, data_range):
+        """
+        Scale a value to match the scale of the offset register
+        :param value: Value to scale
+        :param data_range: Currently selected board data range (+/- g)
+        """
+        scale_factor = self.SCALE_FACTORS[data_range]
+        return value * (scale_factor / self.OFFSET_REGISTERS_SCALE_FACTOR)

@@ -77,7 +77,7 @@ class TestTwosComplement(unittest.TestCase):
         with self.assertRaises(ValueError):
             twos = TwosComplement.from_decimal(32768)
 
-    def test_GIVEN_negative_geq_minus_128_WHEN_make_from_decimal_THEN_binary_products(self):
+    def test_GIVEN_negative_geq_minus_128_WHEN_make_from_decimal_THEN_binary_correct(self):
         decs = [-77, -128]
         bins = [0b10110011, 0b10000000]
         for idx, dec in enumerate(decs):
@@ -85,7 +85,7 @@ class TestTwosComplement(unittest.TestCase):
             assert_that(twos.as_bin(), is_(bins[idx]))
             assert_that(twos.as_dec(), is_(dec))
 
-    def test_GIVEN_negative_geq_minus_32768_WHEN_make_from_decimal_THEN_binary_products(self):
+    def test_GIVEN_negative_geq_minus_32768_WHEN_make_from_decimal_THEN_binary_correct(self):
         decs = [-3500, -32768]
         bins = [0b1111001001010100, 0b1000000000000000]
         for idx, dec in enumerate(decs):
@@ -96,6 +96,17 @@ class TestTwosComplement(unittest.TestCase):
     def test_GIVEN_positive_lt_minus_32768_WHEN_make_from_decimal_THEN_raises_ValueError(self):
         with self.assertRaises(ValueError):
             twos = TwosComplement.from_decimal(-32769)
+
+    def test_GIVEN_floats_WHEN_make_from_decimal_THEN_correctly_rounded_binary_representation(self):
+        floats = [-3.3, 5.5, -0.5, 1.1]
+        bins = [0b11111101, 0b00000110, 0b11111111, 0b00000001]
+        for idx, num in enumerate(floats):
+            twos = TwosComplement.from_decimal(num)
+            assert_that(twos.as_bin(), is_(bins[idx]))
+
+    def test_GIVEN_instance_WHEN___int__THEN_binary_representation_returned(self):
+        twos = TwosComplement.from_decimal(-3)
+        assert_that(int(twos), is_(0b11111101))
 
 
 class TestADXL345(unittest.TestCase):
@@ -168,9 +179,21 @@ class TestADXL345(unittest.TestCase):
             with self.assertRaises(ValueError):
                 accel.set_data_rate(r)
 
-    def test_GIVEN_valid_rate_WHEN_set_range_THEN_i2c_called_correctly(self):
+    def test_GIVEN_valid_rate_WHEN_set_rate_THEN_i2c_called_correctly(self):
         mock_bus = mock.Mock()
         mock_bus.write_byte_data = mock.Mock()
         accel = ADXL345(mock_bus)
         accel.set_data_rate(400)
         assert_that(accel._i2c._bus.write_byte_data.call_args_list[0][0], is_((0x53, 0x2c, 0b00001100)))
+
+    def test_GIVEN_range_2g_WHEN_set_offset_THEN_i2c_called_correctly(self):
+        mock_bus = mock.Mock()
+        mock_bus.write_byte_data = mock.Mock()
+        mock_bus.read_byte_data = mock.Mock(return_value=0b00)
+        accel = ADXL345(mock_bus)
+        off_x, off_y, off_z = 10, -13, 9
+        accel.set_offset(off_x, off_y, off_z)
+        assert_that(accel._i2c._bus.write_byte_data.call_args_list[0][0], is_((0x53, 0x1e, 0xfd)))
+        assert_that(accel._i2c._bus.write_byte_data.call_args_list[1][0], is_((0x53, 0x1f, 0x03)))
+        assert_that(accel._i2c._bus.write_byte_data.call_args_list[2][0], is_((0x53, 0x20, 0xfe)))
+
