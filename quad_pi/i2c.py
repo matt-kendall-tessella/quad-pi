@@ -353,6 +353,12 @@ class L3G4200D(object):
         """
         self._i2c = I2CDevice(i2c_bus, self.ADDRESS)
 
+    def start(self):
+        """
+        Start the L3G4200D reading data
+        """
+        self._i2c[self.CTRL_REG1] = 0b00001111
+        
     def read(self, raw=False):
         """
         Read the gyroscope rates out for each axis
