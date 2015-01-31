@@ -2,7 +2,7 @@ import unittest
 import mock
 from hamcrest import assert_that, is_
 
-from quad_pi.i2c import TwosComplement, ADXL345
+from quad_pi.i2c import TwosComplement, ADXL345, L3G4200D
 
 
 class TestTwosComplement(unittest.TestCase):
@@ -197,3 +197,60 @@ class TestADXL345(unittest.TestCase):
         assert_that(accel._i2c._bus.write_byte_data.call_args_list[1][0], is_((0x53, 0x1f, 0x03)))
         assert_that(accel._i2c._bus.write_byte_data.call_args_list[2][0], is_((0x53, 0x20, 0xfe)))
 
+
+class TestL4G4200D(unittest.TestCase):
+
+    def test_WHEN_get_range_THEN_i2c_called_correctly(self):
+        mock_bus = mock.Mock()
+        mock_bus.read_byte_data = mock.Mock(return_value=0)
+        gyro = L3G4200D(mock_bus)
+        gyro.get_data_range()
+        assert_that(gyro._i2c._bus.read_byte_data.call_args_list[0][0], is_((0x69, 0x23)))
+
+    def test_WHEN_get_range_THEN_output_returned_as_expetected(self):
+        mock_bus = mock.Mock()
+        mock_bus.read_byte_data = mock.Mock(return_value=0b10010001)
+        gyro = L3G4200D(mock_bus)
+        range = gyro.get_data_range()
+        assert_that(range, is_(500))
+
+    def test_GIVEN_invalid_range_WHEN_set_range_THEN_raises_ValueError(self):
+        mock_bus = mock.Mock()
+        gyro = L3G4200D(mock_bus)
+        with self.assertRaises(ValueError):
+            gyro.set_data_range(450)
+
+    def test_GIVEN_valid_range_WHEN_set_range_THEN_i2c_called_correctly(self):
+        mock_bus = mock.Mock()
+        mock_bus.write_byte_data = mock.Mock()
+        gyro = L3G4200D(mock_bus)
+        gyro.set_data_range(2000)
+        assert_that(gyro._i2c._bus.write_byte_data.call_args_list[0][0], is_(((0x69, 0x23, 0b00100000))))
+
+    def test_WHEN_read_raw_THEN_i2c_called_correcrtly(self):
+        mock_bus = mock.Mock()
+        mock_vals = [0, 1, 2, 3, 4, 5]
+        mock_bus.read_byte_data = mock.Mock(side_effect=mock_vals)
+        gyro = L3G4200D(mock_bus)
+        gyro.read(True)
+        assert_that(gyro._i2c._bus.read_byte_data.call_count, is_(6))
+        for idx, register in enumerate(range(0x28, 0x2e)):
+            assert_that(gyro._i2c._bus.read_byte_data.call_args_list[idx][0], is_((0x69, register)))
+
+    def test_WHEN_read_dps_THEN_output_in_dps(self):
+        mock_bus = mock.Mock()
+        # 3 x MSB, LSB
+        mock_vals = [0, 1, 2, 3, 4, 5, 0]
+        mock_bus.read_byte_data = mock.Mock(side_effect=mock_vals)
+        gyro = L3G4200D(mock_bus)
+        x, y, z = gyro.read()
+        assert_that((x, y, z), is_((256 * (8.75 / 1000), 770* (8.75 / 1000), 1284* (8.75 / 1000))))
+
+    def test_WHEN_read_raw_THEN_output_in_raw(self):
+        mock_bus = mock.Mock()
+        # 3 x MSB, LSB
+        mock_vals = [0, 1, 2, 3, 4, 5]
+        mock_bus.read_byte_data = mock.Mock(side_effect=mock_vals)
+        gyro = L3G4200D(mock_bus)
+        x, y, z = gyro.read(True)
+        assert_that((x, y, z), is_((256, 770, 1284)))

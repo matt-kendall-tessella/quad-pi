@@ -309,3 +309,83 @@ class ADXL345(object):
         """
         scale_factor = self.SCALE_FACTORS[data_range]
         return value * (scale_factor / self.OFFSET_REGISTERS_SCALE_FACTOR)
+
+
+class L3G4200D(object):
+    """
+    Interface to an L3g4200D Gyroscope
+    """
+
+    ADDRESS = 0x69
+
+    CTRL_REG1 = 0x20
+    CTRL_REG2 = 0x21
+    CTRL_REG3 = 0x22
+    CTRL_REG4 = 0x23
+    CTRL_REG5 = 0x24
+    OUT_X_L = 0x28
+    OUT_X_H = 0x29
+    OUT_Y_L = 0x2a
+    OUT_Y_H = 0x2b
+    OUT_Z_L = 0x2c
+    OUT_Z_H = 0x2d
+
+    # Data range (+/-dps) --> Range bits value
+    DATA_RANGES = bidict({
+        250: 0b00,
+        500: 0b01,
+        2000: 0b10
+    })
+
+    # Data range (+/-dps) --> Scale factor (mdps / LSB)
+    SCALE_FACTORS = {
+        250: 8.75,
+        500: 17.50,
+        2000: 70,
+    }
+
+    _i2c = None
+
+    def __init__(self, i2c_bus):
+        """
+        Create a new L3G4200D device
+        :param i2c_bus: Configured smbus.SMBus instance to use for connections
+        """
+        self._i2c = I2CDevice(i2c_bus, self.ADDRESS)
+
+    def read(self, raw=False):
+        """
+        Read the gyroscope rates out for each axis
+        :param raw: If True, return rates in raw format (LSB), if False (default)
+        :returns An (x,y,z) tuple of either raw LSB or degrees per second
+        """
+        x = TwosComplement(self._i2c[self.OUT_X_L], self._i2c[self.OUT_X_H])
+        y = TwosComplement(self._i2c[self.OUT_Y_L], self._i2c[self.OUT_Y_H])
+        z = TwosComplement(self._i2c[self.OUT_Z_L], self._i2c[self.OUT_Z_H])
+        if raw:
+            return x.as_dec(), y.as_dec(), z.as_dec()
+        else:
+            data_range = self.get_data_range()
+            dps_per_lsb = self.SCALE_FACTORS[data_range] / 1000.0
+            return dps_per_lsb * x.as_dec(), dps_per_lsb * y.as_dec(), dps_per_lsb * z.as_dec()
+
+    def set_data_range(self, data_range):
+        """
+        Set the gyroscope's data range.
+        :param data_range: Data range to set in degrees per second
+        """
+        if data_range in self.DATA_RANGES:
+            full_scale_bits = self.DATA_RANGES[data_range]
+            self._i2c[self.CTRL_REG4] = full_scale_bits << 4
+        else:
+            raise ValueError("%s is not an acceptable range - choose from 250,500,2000." % data_range)
+
+    def get_data_range(self):
+        """
+        Get the gyroscopes currently set data range in degrees per second
+        """
+        bin_range = self._i2c[self.CTRL_REG4]
+        # The full scale bits are 5 and 6 (zero-index from right).
+        full_scale_bits = (bin_range >> 4) % 4
+        return self.DATA_RANGES[:full_scale_bits]
+
