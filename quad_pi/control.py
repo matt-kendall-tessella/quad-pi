@@ -40,6 +40,34 @@ class AHRS(object):
         gyro.start()
         return cls(accel, gyro, k)
 
+    def calibrate(self, n_samples):
+        """
+        Calibrate the AHRS
+        :param n_samples: Number of samples to calibrate over
+        """
+        gx, gy, gz = 0.0, 0.0, 0.0
+        ax, ay, az = 0.0, 0.0, 0.0
+        i = 0
+        while i < n_samples:
+            x, y, z = self._gyro.read()
+            gx += x
+            gy += y
+            gz += z
+            x, y, z = self._accel.read()
+            ax += x
+            ay += y
+            az += z
+            i += 1
+        ax /= n_samples
+        ay /= n_samples
+        az = 256 - az / n_samples
+        gx /= n_samples
+        gy /= n_samples
+        gz /= n_samples
+        self._accel.set_offset(ax, ay, az)
+        self._gyro.set_offset(gx, gy, gz)
+
+
     def calculate(self):
         """
         Read and calculate the attitude and heading information
