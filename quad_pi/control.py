@@ -45,10 +45,15 @@ class AHRS(object):
         Read and calculate the attitude and heading information
         :returns A tuple of (pitch, roll, heading)
         """
-        g_dx, g_dy, g_dz = self._get_gyro_angles()
         a_pitch, a_roll = self._get_accel_attitude()
-        self._int_pitch = self._k * (self._int_pitch + g_dx) + (1 - self._k) * a_roll
-        self._int_roll = self._k * (self._int_roll + g_dy) + (1 - self._k) * a_roll
+        g_dx, g_dy, g_dz = self._get_gyro_angles()
+        if None in (g_dx, g_dy, g_dz):
+            self._int_pitch = a_pitch
+            self._int_roll = a_roll
+        else:
+            self._int_pitch = self._k * (self._int_pitch + g_dx) + (1 - self._k) * a_roll
+            self._int_roll = self._k * (self._int_roll + g_dy) + (1 - self._k) * a_roll
+        return self._int_pitch, self._int_roll, 360
 
     def _get_accel_attitude(self):
         """
