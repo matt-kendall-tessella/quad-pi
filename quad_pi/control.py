@@ -60,7 +60,7 @@ class AHRS(object):
             i += 1
         ax /= n_samples
         ay /= n_samples
-        az = 256 - az / n_samples
+        az = az / n_samples - 256
         gx /= n_samples
         gy /= n_samples
         gz /= n_samples
