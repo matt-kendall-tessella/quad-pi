@@ -283,12 +283,12 @@ class ADXL345(object):
 
     def set_offset(self, offset_x, offset_y, offset_z):
         """
-        Set the onboard zero-g offset.
-
-        This takes the reading in LSB that
+        Set the accelerometer zero-g offset.
+        This takes the reading in LSB that is output when each axis is exposed to 0g acceleration and stores
+        it on the ADXL345's onboard offset registers.
         :param offset_x: x-axis 0g reading (LSB)
         :param offset_y: y-axis 0g reading (LSB)
-        :param offset_z: z-axis 1g reading (LSB)
+        :param offset_z: z-axis 0g reading (LSB)
         """
         # First rescale the data to match the offset registers
         data_range = self.get_data_range()
@@ -345,6 +345,7 @@ class L3G4200D(object):
     }
 
     _i2c = None
+    _offsets = (0., 0., 0.)  # X, Y and Z offsets
 
     def __init__(self, i2c_bus):
         """
@@ -368,12 +369,15 @@ class L3G4200D(object):
         x = TwosComplement(self._i2c[self.OUT_X_L], self._i2c[self.OUT_X_H])
         y = TwosComplement(self._i2c[self.OUT_Y_L], self._i2c[self.OUT_Y_H])
         z = TwosComplement(self._i2c[self.OUT_Z_L], self._i2c[self.OUT_Z_H])
+        x_cal = x.as_dec() - self._offsets[0]
+        y_cal = y.as_dec() - self._offsets[1]
+        z_cal = z.as_dec() - self._offsets[2]
         if raw:
-            return x.as_dec(), y.as_dec(), z.as_dec()
+            return x_cal, y_cal, z_cal
         else:
             data_range = self.get_data_range()
             dps_per_lsb = self.SCALE_FACTORS[data_range] / 1000.0
-            return dps_per_lsb * x.as_dec(), dps_per_lsb * y.as_dec(), dps_per_lsb * z.as_dec()
+            return dps_per_lsb * x_cal, dps_per_lsb * y_cal, dps_per_lsb * z_cal
 
     def set_data_range(self, data_range):
         """
@@ -395,3 +399,14 @@ class L3G4200D(object):
         full_scale_bits = (bin_range >> 4) % 4
         return self.DATA_RANGES[:full_scale_bits]
 
+    def set_offset(self, offset_x, offset_y, offset_z):
+        """
+        Set the gyroscope's no-acceleration offset.
+        This takes the reading in LSB that is output when each axis is steady and applies that offset against all
+        future measurements. The L3G4200D has no offset registers so this is not stored onboard but in the instance.
+        NOTE: Currently this means if you change the range the offsets will no longer be valid.
+        :param offset_x: x-axis stationary reading (LSB)
+        :param offset_y: y-axis stationary reading (LSB)
+        :param offset_z: z-axis stationary reading (LSB)
+        """
+        self._offsets = offset_x, offset_y, offset_z
