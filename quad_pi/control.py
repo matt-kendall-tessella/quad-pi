@@ -67,7 +67,6 @@ class AHRS(object):
         self._accel.set_offset(ax, ay, az)
         self._gyro.set_offset(gx, gy, gz)
 
-
     def calculate(self):
         """
         Read and calculate the attitude and heading information
@@ -89,8 +88,8 @@ class AHRS(object):
         :return: Tuple of (pitch, roll)
         """
         x, y, z = self._accel.read()
-        pitch = math.atan2(-y, x)
-        roll = math.atan2(x, math.sqrt(y**2 + x**2))
+        pitch = math.atan2(-x, z)
+        roll = math.atan2(y, math.sqrt(x**2 + z**2))
         return math.degrees(pitch), math.degrees(roll)
 
     def _get_gyro_angles(self):
@@ -100,6 +99,7 @@ class AHRS(object):
         """
         dx, dy, dz = self._gyro.read()
         if self._last_read_time is None:
+            self._last_read_time = datetime.now()
             return None, None, None
         time_now = datetime.now()
         dt = (time_now - self._last_read_time).total_seconds()
