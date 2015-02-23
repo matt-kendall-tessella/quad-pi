@@ -112,7 +112,15 @@ class I2CDevice(object):
     def __getitem__(self, register_address):
         """
         Retrieve a value from a given register on this device
+        :param register_address: Register address or tuple of (start address, n_registers) for block read
         """
+        if isinstance(register_address, tuple):
+            # The register address is assumed to be a tuple of (start address, n_registers)
+            try:
+                register, block_size = register_address
+                return self._bus.read_i2c_block_data(self._address, register, block_size)
+            except ValueError:
+                raise ValueError("Expected single register address or length 2-tuple for block read")
         return self._bus.read_byte_data(self._address, register_address)
 
     def __setitem__(self, register_address, byte_data):
@@ -223,9 +231,12 @@ class ADXL345(object):
         """
         Get the binary (twos complement) reading for each axis
         """
-        x = TwosComplement(self._i2c[self.DATAX0], self._i2c[self.DATAX1])
-        y = TwosComplement(self._i2c[self.DATAY0], self._i2c[self.DATAY1])
-        z = TwosComplement(self._i2c[self.DATAZ0], self._i2c[self.DATAZ1])
+        # Read 6 registers from DATAX0 -> DATAZ1
+        # Must read all registers in block so that they don't update during
+        x0, x1, y0, y1, z0, z1 = self._i2c[self.DATAX0, 6]
+        x = TwosComplement(x0, x1)
+        y = TwosComplement(y0, y1)
+        z = TwosComplement(z0, z1)
         return x, y, z
 
     def start(self):
@@ -366,9 +377,12 @@ class L3G4200D(object):
         :param raw: If True, return rates in raw format (LSB), if False (default)
         :returns An (x,y,z) tuple of either raw LSB or degrees per second
         """
-        x = TwosComplement(self._i2c[self.OUT_X_L], self._i2c[self.OUT_X_H])
-        y = TwosComplement(self._i2c[self.OUT_Y_L], self._i2c[self.OUT_Y_H])
-        z = TwosComplement(self._i2c[self.OUT_Z_L], self._i2c[self.OUT_Z_H])
+        # Read 6 registers from OUT_X_L -> OUT_X_H
+        # Must read all registers in block so that they don't update during
+        x0, x1, y0, y1, z0, z1 = self._i2c[self.OUT_X_L, 6]
+        x = TwosComplement(x0, x1)
+        y = TwosComplement(y0, y1)
+        z = TwosComplement(z0, z1)
         x_cal = x.as_dec() - self._offsets[0]
         y_cal = y.as_dec() - self._offsets[1]
         z_cal = z.as_dec() - self._offsets[2]

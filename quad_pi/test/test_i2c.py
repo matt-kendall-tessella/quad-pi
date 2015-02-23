@@ -114,18 +114,17 @@ class TestADXL345(unittest.TestCase):
     def test_WHEN_read_data_THEN_i2c_called_correctly(self):
         mock_bus = mock.Mock()
         mock_vals = [0, 1, 2, 3, 4, 5]
-        mock_bus.read_byte_data = mock.Mock(side_effect=mock_vals)
+        mock_bus.read_i2c_block_data = mock.Mock(return_value=mock_vals)
         accel = ADXL345(mock_bus)
         x, y, z = accel.read()
-        assert_that(accel._i2c._bus.read_byte_data.call_count, is_(6))
-        for idx, register in enumerate(range(0x32, 0x38)):
-            assert_that(accel._i2c._bus.read_byte_data.call_args_list[idx][0], is_((0x53, register)))
+        # This is an I2C block read so that registers don't update between readings)
+        assert_that(accel._i2c._bus.read_i2c_block_data.call_args_list[0][0], is_((0x53, 0x32, 6)))
 
     def test_GIVEN_mock_smbus_WHEN_read_data_THEN_output_data_returned_as_expected(self):
         mock_bus = mock.Mock()
         # 3 x MSB, LSB
         mock_vals = [0, 1, 2, 3, 4, 5]
-        mock_bus.read_byte_data = mock.Mock(side_effect=mock_vals)
+        mock_bus.read_i2c_block_data = mock.Mock(return_value=mock_vals)
         accel = ADXL345(mock_bus)
         x, y, z = accel.read()
         assert_that((x, y, z), is_((256, 770, 1284)))
@@ -230,27 +229,26 @@ class TestL4G4200D(unittest.TestCase):
     def test_WHEN_read_raw_THEN_i2c_called_correcrtly(self):
         mock_bus = mock.Mock()
         mock_vals = [0, 1, 2, 3, 4, 5]
-        mock_bus.read_byte_data = mock.Mock(side_effect=mock_vals)
+        mock_bus.read_i2c_block_data = mock.Mock(return_value=mock_vals)
         gyro = L3G4200D(mock_bus)
         gyro.read(True)
-        assert_that(gyro._i2c._bus.read_byte_data.call_count, is_(6))
-        for idx, register in enumerate(range(0x28, 0x2e)):
-            assert_that(gyro._i2c._bus.read_byte_data.call_args_list[idx][0], is_((0x69, register)))
+        assert_that(gyro._i2c._bus.read_i2c_block_data.call_args_list[0][0], is_((0x69, 0x28, 6)))
 
     def test_WHEN_read_dps_THEN_output_in_dps(self):
         mock_bus = mock.Mock()
         # 3 x MSB, LSB
-        mock_vals = [0, 1, 2, 3, 4, 5, 0]
-        mock_bus.read_byte_data = mock.Mock(side_effect=mock_vals)
+        mock_vals = [0, 1, 2, 3, 4, 5]
+        mock_bus.read_i2c_block_data = mock.Mock(return_value=mock_vals)
+        mock_bus.read_byte_data = mock.Mock(return_value=0)
         gyro = L3G4200D(mock_bus)
         x, y, z = gyro.read()
-        assert_that((x, y, z), is_((256 * (8.75 / 1000), 770* (8.75 / 1000), 1284* (8.75 / 1000))))
+        assert_that((x, y, z), is_((256 * (8.75 / 1000), 770 * (8.75 / 1000), 1284 * (8.75 / 1000))))
 
     def test_WHEN_read_raw_THEN_output_in_raw(self):
         mock_bus = mock.Mock()
         # 3 x MSB, LSB
         mock_vals = [0, 1, 2, 3, 4, 5]
-        mock_bus.read_byte_data = mock.Mock(side_effect=mock_vals)
+        mock_bus.read_i2c_block_data = mock.Mock(return_value=mock_vals)
         gyro = L3G4200D(mock_bus)
         x, y, z = gyro.read(True)
         assert_that((x, y, z), is_((256, 770, 1284)))
